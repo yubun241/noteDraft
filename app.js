@@ -5,7 +5,7 @@
 // note への受け渡しは Markdown → HTML を clipboard(text/html) に載せて貼り付ける。
 // 構想（WHY/HOW/WHAT）は frontmatter に持ち、本文とは分離する。note には出さず、AI 用プロンプトの材料にする。
 
-import MarkdownIt from "./vendor/markdown-it.js"; // 同梱（外部 CDN 依存なし）
+import MarkdownIt from "./markdown-it.js"; // 同梱（外部 CDN 依存なし）。ルート直下に置く
 
 // ---------- 設定 ----------
 const CFG_KEY = "note-drafts.config";
@@ -79,7 +79,8 @@ class GitHubRepo {
     return res.status === 204 ? null : res.json();
   }
   async list() {
-    const items = (await this.req("GET", this.dir)) || [];
+    const items = await this.req("GET", this.dir);
+    if (items === null) return null; // ディレクトリ自体が無い
     return items.filter((i) => i.type === "file" && i.name.endsWith(".md"))
       .map((i) => ({ name: i.name, path: i.path, sha: i.sha }));
   }
@@ -249,8 +250,15 @@ async function refreshList() {
   if (!repo) return;
   try {
     const items = await repo.list();
-    items.sort((a, b) => b.name.localeCompare(a.name));
     ui.list.innerHTML = "";
+    if (items === null) {
+      const li = document.createElement("li");
+      li.className = "note";
+      li.textContent = `${repo.dir}/ ディレクトリがまだありません。「＋ 新規」で最初の下書きを保存すると作成されます。`;
+      ui.list.appendChild(li);
+      return;
+    }
+    items.sort((a, b) => b.name.localeCompare(a.name));
     for (const it of items) {
       const li = document.createElement("li");
       li.textContent = it.name.replace(/\.md$/, "");

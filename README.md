@@ -4,9 +4,9 @@ GitHub Pages 上で動く、note 用の下書きエディタ。完全パブリ�
 
 ```
 public repo（このリポジトリ）
-├── index.html / app.js / style.css   ← Pages で配信されるアプリ
-├── vendor/markdown-it.js             ← 同梱ライブラリ
-└── drafts/                           ← 下書き本体（全員に見える）
+├── index.html / app.js / style.css   ← Pages で配信されるアプリ（すべてルート直下）
+├── markdown-it.js                    ← 同梱ライブラリ（ルート直下）
+└── drafts/                           ← 下書き本体（全員に見える）。無ければ初回保存時に自動作成
     └── 2026-10-20-xxx.md
           ---
           title: "..."
@@ -26,7 +26,7 @@ public repo（このリポジトリ）
 
 ## セットアップ
 
-1. このリポジトリを public で作り、全ファイルを push（`vendor/`, `drafts/` ディレクトリごと）
+1. このリポジトリを public で作り、`index.html` `app.js` `style.css` `markdown-it.js` をルート直下に push（`drafts/` は無くてもよい。保存時に作られる）
 2. Settings → Pages → Source: *Deploy from a branch* → `main` / `/ (root)`
 3. `https://<owner>.github.io/<repo>/` を開く → 一覧に `drafts/` の内容が出る
 

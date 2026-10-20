@@ -35,6 +35,8 @@ input, select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); 
 .draft-list li { padding: 7px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .draft-list li:hover { background: var(--bg); }
 .draft-list li.active { background: var(--accent); color: var(--accent-fg); }
+.draft-list li.note { white-space: normal; color: var(--muted); cursor: default; line-height: 1.5; }
+.draft-list li.note:hover { background: transparent; }
 
 .main { display: flex; flex-direction: column; min-height: 0; }
 .toolbar { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); align-items: center; }

@@ -119,7 +119,7 @@
     };
     window.addEventListener("error", (e) => {
       if (e.target && e.target.tagName === "SCRIPT") {
-        window.__showFatal("スクリプト読み込み失敗: " + e.target.src + "（同階層に app.js と vendor/markdown-it.js があるか確認）");
+        window.__showFatal("スクリプト読み込み失敗: " + e.target.src + "（index.html と同じ階層に app.js と markdown-it.js があるか確認）");
       } else {
         window.__showFatal("実行時エラー: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno);
       }
