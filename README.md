@@ -1,93 +1,67 @@
 # note drafts
 
-GitHub Pages 上で動く、note 用の下書きエディタ。
-ビルド不要の静的 SPA（`index.html` / `app.js` / `style.css`）。
+GitHub Pages 上で動く、note 用の下書きエディタ。完全パブリック構成・ビルド不要・外部 CDN 依存なし。
 
 ```
-Pages (この public repo)          private repo（データ）
-┌─────────────────────┐   PAT    drafts/
-│ エディタ / プレビュー   ├────────▶  2026-10-20-xxx.md
-│ note 用 HTML コピー     │  REST       ---
-└─────────────────────┘             title: "..."
-                                     status: draft|review|published
-                                     ---
-                                     本文(Markdown)
+public repo（このリポジトリ）
+├── index.html / app.js / style.css   ← Pages で配信されるアプリ
+├── vendor/markdown-it.js             ← 同梱ライブラリ
+└── drafts/                           ← 下書き本体（全員に見える）
+    └── 2026-10-20-xxx.md
+          ---
+          title: "..."
+          status: draft | review | published
+          why: |   / how: |   / what: |      ← 構想（WHY/HOW/WHAT）
+          ---
+          本文(Markdown)
 ```
 
 ## 設計上のポイント
 
-- **認証**: 公開 JS にトークンは埋め込めないので、fine-grained PAT をユーザーが設定画面で貼り、`localStorage` にだけ保存する。サーバは一切持たない。
-- **保存**: GitHub Contents API を直接叩く。`sha` を渡す楽観ロックなので、別端末との競合は 409/422 で検出される（自動マージはしない）。
-- **note 連携**: 非公式 API は使わない（CORS・規約・変更リスク）。Markdown → HTML を `text/html` としてクリップボードに載せ、note の本文欄に貼る。見出し・リスト・リンク・引用・コードブロックはほぼそのまま入る。表は note 側が非対応なので手修正が必要。
+- **読み込みはトークン不要**。公開 repo の Contents API は未認証で叩ける（60 req/h）。Pages の URL `<owner>.github.io/<repo>/` から owner/repo を自動推定するので、開くだけで一覧が出る。
+- **保存・削除だけ PAT が必要**。静的サイトには認証なしで書き込む手段がないため。fine-grained PAT をユーザーが設定画面で貼り、`localStorage` にだけ保存する。サーバは持たない。
+- **競合は楽観ロック**（`sha`）で検出。別端末との競合は 409/422 で通知、自動マージはしない。
+- **note 連携は HTML コピー**。非公式 API は使わない（CORS・規約・変更リスク）。Markdown → HTML を `text/html` としてクリップボードに載せ、note の本文欄に貼る。表は note 非対応。
+- **構想は本文と分離**して frontmatter に持つ。note には出さず、AI 用プロンプトの材料にする。
 
 ## セットアップ
 
-### 1. データ用 private repo を作る
-
-例: `note-drafts-data`（Private）。空で構わないが、`drafts/.gitkeep` を置いておくと一覧取得が 404 にならない。
-
-### 2. fine-grained PAT を発行
-
-GitHub → Settings → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token
-
-- Repository access: **Only select repositories** → `note-drafts-data` だけ
-- Permissions → Repository permissions → **Contents: Read and write**
-- 他は何も付けない。Expiration は運用に合わせて（短めにして定期更新が無難）
-
-### 3. このアプリを Pages で公開
-
-1. この 3 ファイルを public repo（例: `note-drafts`）に push
+1. このリポジトリを public で作り、全ファイルを push（`vendor/`, `drafts/` ディレクトリごと）
 2. Settings → Pages → Source: *Deploy from a branch* → `main` / `/ (root)`
-3. `https://<you>.github.io/note-drafts/` を開く
+3. `https://<owner>.github.io/<repo>/` を開く → 一覧に `drafts/` の内容が出る
 
-### 4. 初回起動
+### 保存できるようにする（任意）
 
-設定ダイアログに Owner / Repo / Branch / Directory / Token を入力して保存。
+GitHub → Settings → Developer settings → Personal access tokens → **Fine-grained tokens**
 
-## 構想（WHY / HOW / WHAT）
+- Repository access: **Only select repositories** → このリポジトリだけ
+- Permissions → Repository permissions → **Contents: Read and write**
+- アプリの ⚙ 設定 → Token に貼る
 
-左ペインに記事ごとの構想欄がある。本文とは分離して frontmatter に保存され、note へのコピーには含まれない。
-
-```yaml
----
-title: "..."
-status: draft
-why_reader: |      # 読み手になってほしい姿
-  ...
-why_message: |     # 伝えたいこと
-  ...
-how_content: |     # どのような内容
-  ...
-how_thought: |     # 自分が思ったこと
-  ...
-what: |            # 具体的な内容
-  ...
----
-本文
-```
-
-`AI用にコピー` を押すと、構想を Markdown に整形したプロンプトがクリップボードに入る。
-
-- 本文が空のとき → 「構成を提案して・穴を指摘して」という依頼文を末尾に付ける
-- 本文があるとき → 本文も同梱し「構想と照らしてレビューして」という依頼文を付ける
-
-末尾の依頼文は設定ダイアログで差し替え可能。
+トークンを入れると API 上限も 5000 req/h に上がる。
 
 ## 使い方
 
-- `＋ 新規` → タイトルと本文を書く → `⌘S` / `Ctrl+S` で保存。ファイル名は `YYYY-MM-DD-<slug>.md` で自動生成。
+- `＋ 新規` → 構想欄（WHY / HOW / WHAT）を埋め、本文を書く → `⌘S` / `Ctrl+S` で保存。ファイル名は `YYYY-MM-DD-<slug>.md` で自動生成。
+- `AI用にコピー` → 構想を Markdown に整形したプロンプトをコピー。本文が空なら「構成を提案して」、本文があれば本文も同梱して「構想と照らしてレビューして」が末尾に付く（設定で差し替え可）。
 - `note用にコピー` → note の新規記事画面で本文欄に貼り付け。タイトルは `T` ボタンで別途コピー。
 - `プレビュー` で右ペインに描画（note の見た目とは完全一致しない）。
-- 画像は現状 note 側で直接アップロードする前提（`![]()` は note では展開されない）。
+- 画像は note 側で直接アップロードする前提。
 
-## セキュリティ上の注意
+## 注意
 
-- PAT は localStorage に平文で入る。共用 PC では使わない。XSS があれば盗まれるので、プレビューは `html: false` で描画し、外部スクリプトは esm.sh の markdown-it のみ。
-- このアプリは **自分専用** を想定。他人に使わせるなら OAuth App + 小さなプロキシ（Cloudflare Workers 等）に切り替えること。
+- **下書きは全世界に公開される**。未公開ネタ・個人情報はここに置かない。
+- PAT は localStorage に平文で入る。共用 PC では使わない。
+- Pages 側のファイル配信は commit から 1〜2 分遅れるが、アプリは API 経由で読むので保存直後でも最新が見える。
+
+## トラブルシュート
+
+- 赤いバナーが出る → 書かれているファイルが同階層にあるか確認（zip 展開時にディレクトリが欠けていないか）
+- `403` で一覧が出ない → 未認証の API 上限。トークンを入れるか 1 時間待つ
+- `drafts/` が空だと一覧が 404 になる → 何か 1 ファイル置く
 
 ## 次の拡張候補
 
-- CodeMirror 6 への置き換え（シンタックスハイライト・ショートカット）
-- 画像を private repo に置き、note 用コピー時に注意喚起 or 自動アップロード（拡張機能経由）
-- `status: published` を Actions で public repo に同期（B 案への移行）
+- CodeMirror 6 への置き換え
 - 自動保存（debounce + 競合時の再読込）
+- `status: published` の記事だけを別ページで一覧表示

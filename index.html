@@ -84,14 +84,15 @@
     <form method="dialog" class="settings-form">
       <h2>設定</h2>
       <p class="hint">
-        fine-grained PAT（対象 repo のみ・Contents: Read and write）を発行して貼り付けてください。
-        値はこのブラウザの localStorage にのみ保存されます。
+        下書きはこのサイトを配信している public repo に保存されます。閲覧はトークン不要。
+        保存・削除には fine-grained PAT（この repo のみ・Contents: Read and write）が必要です。
+        トークンはこのブラウザの localStorage にのみ保存されます。
       </p>
-      <label>Owner <input id="cfgOwner" placeholder="your-github-id" required /></label>
-      <label>Repo（private） <input id="cfgRepo" placeholder="note-drafts-data" required /></label>
+      <label>Owner <input id="cfgOwner" placeholder="（URL から自動推定）" /></label>
+      <label>Repo（public） <input id="cfgRepo" placeholder="（URL から自動推定）" /></label>
       <label>Branch <input id="cfgBranch" value="main" required /></label>
       <label>Directory <input id="cfgDir" value="drafts" required /></label>
-      <label>Token <input id="cfgToken" type="password" placeholder="github_pat_..." required /></label>
+      <label>Token（保存するときだけ必要） <input id="cfgToken" type="password" placeholder="github_pat_...（空なら閲覧のみ）" /></label>
       <label>AI用プロンプトの末尾指示（本文が空のとき）
         <textarea id="cfgPromptEmpty" rows="3"></textarea>
       </label>
@@ -105,18 +106,29 @@
     </form>
   </dialog>
 
-  <script type="module" src="./app.js"></script>
   <script>
-    // app.js / style.css が読めていない場合の自己診断（file:// や zip 内から開いた場合に発生）
-    setTimeout(() => {
-      const cssOk = getComputedStyle(document.body).display === "flex";
-      if (window.__noteDraftsReady && cssOk) return;
-      const d = document.createElement("div");
-      d.style.cssText = "position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:10px 16px;font:14px sans-serif;z-index:9999";
-      d.textContent = (cssOk ? "app.js" : "style.css と app.js") +
-        " を読み込めていません。zip を展開して全ファイルを同じフォルダに置き、GitHub Pages またはローカルサーバ (http://) 経由で開いてください。file:// や zip 内からの直接表示では動作しません。";
-      document.body.appendChild(d);
-    }, 3000);
+    // 自己診断: 実際に起きたエラーだけを表示する（タイマー推測はしない）
+    window.__showFatal = (msg) => {
+      let d = document.getElementById("fatal");
+      if (!d) {
+        d = document.createElement("div"); d.id = "fatal";
+        d.style.cssText = "position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:10px 16px;font:13px/1.5 monospace;z-index:9999;white-space:pre-wrap";
+        document.body.appendChild(d);
+      }
+      d.textContent += msg + "\n";
+    };
+    window.addEventListener("error", (e) => {
+      if (e.target && e.target.tagName === "SCRIPT") {
+        window.__showFatal("スクリプト読み込み失敗: " + e.target.src + "（同階層に app.js と vendor/markdown-it.js があるか確認）");
+      } else {
+        window.__showFatal("実行時エラー: " + e.message + " @ " + (e.filename || "").split("/").pop() + ":" + e.lineno);
+      }
+    }, true);
+    window.addEventListener("unhandledrejection", (e) => window.__showFatal("未処理の例外: " + (e.reason?.message || e.reason)));
+    window.addEventListener("load", () => {
+      if (getComputedStyle(document.body).display !== "flex") window.__showFatal("style.css が読み込めていません（同階層にあるか確認）");
+    });
   </script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

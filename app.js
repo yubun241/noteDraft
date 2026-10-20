@@ -1,12 +1,29 @@
-// note drafts — GitHub Pages で動く静的 SPA。
-// 下書きは private repo の <dir>/*.md に保存し、GitHub Contents API を PAT で直接叩く。
+// note drafts — GitHub Pages で動く静的 SPA。完全パブリック構成。
+// 下書きはこのサイトを配信している public repo の <dir>/*.md に保存する。
+//   読み込み: GitHub Contents API を未認証で叩く（公開 repo なのでトークン不要、60 req/h）
+//   保存/削除: fine-grained PAT が必要（設定で任意入力。入れると読み込みも 5000 req/h に上がる）
 // note への受け渡しは Markdown → HTML を clipboard(text/html) に載せて貼り付ける。
 // 構想（WHY/HOW/WHAT）は frontmatter に持ち、本文とは分離する。note には出さず、AI 用プロンプトの材料にする。
 
-import MarkdownIt from "https://esm.sh/markdown-it@14";
+import MarkdownIt from "./vendor/markdown-it.js"; // 同梱（外部 CDN 依存なし）
 
 // ---------- 設定 ----------
 const CFG_KEY = "note-drafts.config";
+// Pages の URL（<owner>.github.io/<repo>/）から owner/repo を推定する。それ以外のホストでは空。
+function inferRepo() {
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+  const seg = location.pathname.split("/").filter(Boolean)[0] || "";
+  return m ? { owner: m[1], repo: seg } : { owner: "", repo: "" };
+}
+function effectiveConfig() {
+  const c = cfg.load() || {};
+  const inf = inferRepo();
+  return {
+    owner: c.owner || inf.owner, repo: c.repo || inf.repo,
+    branch: c.branch || "main", dir: c.dir || "drafts", token: c.token || "",
+    promptEmpty: c.promptEmpty || "", promptBody: c.promptBody || "",
+  };
+}
 const DEFAULT_PROMPT_EMPTY =
   "上記の構想に基づいて、note 記事の見出し構成（H2/H3）と各節で書くべき要点を提案してください。構想に穴や矛盾があれば先に指摘してください。";
 const DEFAULT_PROMPT_BODY =
@@ -35,13 +52,11 @@ class GitHubRepo {
     Object.assign(this, { owner, repo, branch, dir: dir.replace(/^\/+|\/+$/g, ""), token });
   }
   get base() { return `https://api.github.com/repos/${this.owner}/${this.repo}/contents`; }
+  get canWrite() { return !!this.token; }
   headers(extra = {}) {
-    return {
-      Authorization: `Bearer ${this.token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...extra,
-    };
+    const h = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...extra };
+    if (this.token) h.Authorization = `Bearer ${this.token}`; // 未認証でも公開 repo は読める
+    return h;
   }
   async req(method, path, body) {
     const url = `${this.base}/${path}` + (method === "GET" ? `?ref=${encodeURIComponent(this.branch)}&t=${Date.now()}` : "");
@@ -54,7 +69,10 @@ class GitHubRepo {
     if (res.status === 404 && method === "GET") return null;
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      const err = new Error(`${method} ${path} -> ${res.status} ${text.slice(0, 200)}`);
+      let hint = "";
+      if (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0") hint = "（未認証の API 上限 60回/時 に達しました。設定にトークンを入れると上限が上がります）";
+      if (res.status === 401) hint = "（トークンが無効か期限切れです）";
+      const err = new Error(`${method} ${path} -> ${res.status} ${text.slice(0, 160)}${hint}`);
       err.status = res.status;
       throw err;
     }
@@ -272,8 +290,16 @@ function newDraft() {
   ui.title.focus();
 }
 
+function requireToken(action) {
+  if (repo?.canWrite) return true;
+  setStatus(`${action}には GitHub トークンが必要です。⚙ 設定から入力してください。`, "err");
+  openSettings();
+  return false;
+}
+
 async function save() {
   if (!repo || !current) return;
+  if (!requireToken("保存")) return;
   readFromUi();
   if (!current.name) current.name = `${todayPrefix()}-${slugify(current.meta.title)}.md`;
   const text = buildDoc(current.meta, current.body);
@@ -295,6 +321,7 @@ async function save() {
 
 async function remove() {
   if (!current?.name) { clearUi(); return; }
+  if (!requireToken("削除")) return;
   if (!confirm(`${current.name} を削除しますか？`)) return;
   try {
     await repo.remove(current.name, current.sha, `delete: ${current.name}`);
@@ -326,7 +353,7 @@ async function copyForNote() {
 async function copyForAi() {
   if (!current) current = { name: null, sha: null, meta: emptyMeta(), body: "" };
   readFromUi();
-  const c = cfg.load() || {};
+  const c = effectiveConfig();
   const prompt = buildAiPrompt(current.meta, current.body, {
     empty: c.promptEmpty || DEFAULT_PROMPT_EMPTY,
     body: c.promptBody || DEFAULT_PROMPT_BODY,
@@ -354,21 +381,26 @@ function toggleFrame() {
 
 // ---------- 設定ダイアログ ----------
 function openSettings() {
-  const c = cfg.load() || {};
-  $("cfgOwner").value = c.owner || "";
-  $("cfgRepo").value = c.repo || "";
-  $("cfgBranch").value = c.branch || "main";
-  $("cfgDir").value = c.dir || "drafts";
-  $("cfgToken").value = c.token || "";
+  const c = effectiveConfig();
+  $("cfgOwner").value = c.owner;
+  $("cfgRepo").value = c.repo;
+  $("cfgBranch").value = c.branch;
+  $("cfgDir").value = c.dir;
+  $("cfgToken").value = c.token;
   $("cfgPromptEmpty").value = c.promptEmpty || DEFAULT_PROMPT_EMPTY;
   $("cfgPromptBody").value = c.promptBody || DEFAULT_PROMPT_BODY;
   ui.dlg.showModal();
 }
 async function applyConfig() {
-  const c = cfg.load();
-  if (!c?.token) { repo = null; ui.repoLabel.textContent = "未設定"; return; }
+  const c = effectiveConfig();
+  if (!c.owner || !c.repo) {
+    repo = null;
+    ui.repoLabel.textContent = "repo 未設定";
+    setStatus("github.io 以外で開いているため repo を推定できません。⚙ 設定で owner/repo を指定してください。", "err");
+    return;
+  }
   repo = new GitHubRepo(c);
-  ui.repoLabel.textContent = `${c.owner}/${c.repo}@${c.branch}/${c.dir}`;
+  ui.repoLabel.textContent = `${c.owner}/${c.repo}@${c.branch}/${c.dir}` + (repo.canWrite ? "" : "（閲覧のみ・保存にはトークンが必要）");
   await refreshList();
 }
 
@@ -417,5 +449,4 @@ window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault()
 // ---------- 起動 ----------
 if (localStorage.getItem("note-drafts.frameOn") === "0") { frameOn = false; ui.btnFrame.classList.remove("active"); }
 showWorkspace(false);
-window.__noteDraftsReady = true;
 applyConfig().then(() => { if (!repo) openSettings(); });
