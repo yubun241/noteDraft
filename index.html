@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>note drafts</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">note drafts</div>
+    <div class="repo" id="repoLabel">未設定</div>
+    <div class="spacer"></div>
+    <span id="status" class="status"></span>
+    <button id="btnSettings" title="設定">⚙</button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <button id="btnNew">＋ 新規</button>
+        <button id="btnRefresh" title="一覧を再読込">↻</button>
+      </div>
+      <ul id="draftList" class="draft-list"></ul>
+    </aside>
+
+    <main class="main">
+      <div class="toolbar">
+        <input id="titleInput" class="title-input" placeholder="タイトル" />
+        <select id="statusSelect" title="状態">
+          <option value="draft">draft</option>
+          <option value="review">review</option>
+          <option value="published">published</option>
+        </select>
+        <button id="btnSave" disabled>保存 <kbd>⌘S</kbd></button>
+        <button id="btnCopy" class="primary">note用にコピー</button>
+        <button id="btnCopyTitle" title="タイトルをコピー">T</button>
+        <span class="sep"></span>
+        <button id="btnToggleFrame" class="active">構想</button>
+        <button id="btnTogglePreview">プレビュー</button>
+        <button id="btnDelete" class="danger" title="削除">🗑</button>
+      </div>
+
+      <div class="panes" id="panes">
+        <section id="frame" class="frame">
+          <div class="frame-head">
+            <span>構想（WHY → HOW → WHAT）</span>
+            <button id="btnCopyAi" class="primary small">AI用にコピー</button>
+          </div>
+
+          <div class="frame-group">
+            <h3>WHY</h3>
+            <textarea data-field="why" placeholder="読み手になってほしい姿
+読み終えたあと、読者はどう変わっているか
+
+伝えたいこと
+一文で言うなら何を伝えたいか"></textarea>
+          </div>
+
+          <div class="frame-group">
+            <h3>HOW</h3>
+            <textarea data-field="how" placeholder="どのような内容
+構成・切り口・順序
+
+自分が思ったこと
+自分の視点・違和感・経験"></textarea>
+          </div>
+
+          <div class="frame-group">
+            <h3>WHAT</h3>
+            <textarea data-field="what" placeholder="具体的な内容
+事実・データ・手順・コード・事例"></textarea>
+          </div>
+        </section>
+
+        <textarea id="editor" class="editor" spellcheck="false" placeholder="ここに Markdown を書く"></textarea>
+        <article id="preview" class="preview hidden"></article>
+        <div id="empty" class="empty">左の一覧から開くか、「＋ 新規」で白紙を作成</div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" class="settings-form">
+      <h2>設定</h2>
+      <p class="hint">
+        fine-grained PAT（対象 repo のみ・Contents: Read and write）を発行して貼り付けてください。
+        値はこのブラウザの localStorage にのみ保存されます。
+      </p>
+      <label>Owner <input id="cfgOwner" placeholder="your-github-id" required /></label>
+      <label>Repo（private） <input id="cfgRepo" placeholder="note-drafts-data" required /></label>
+      <label>Branch <input id="cfgBranch" value="main" required /></label>
+      <label>Directory <input id="cfgDir" value="drafts" required /></label>
+      <label>Token <input id="cfgToken" type="password" placeholder="github_pat_..." required /></label>
+      <label>AI用プロンプトの末尾指示（本文が空のとき）
+        <textarea id="cfgPromptEmpty" rows="3"></textarea>
+      </label>
+      <label>AI用プロンプトの末尾指示（本文があるとき）
+        <textarea id="cfgPromptBody" rows="3"></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel" type="button" id="btnCfgCancel">キャンセル</button>
+        <button value="ok" class="primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="./app.js"></script>
+  <script>
+    // app.js / style.css が読めていない場合の自己診断（file:// や zip 内から開いた場合に発生）
+    setTimeout(() => {
+      const cssOk = getComputedStyle(document.body).display === "flex";
+      if (window.__noteDraftsReady && cssOk) return;
+      const d = document.createElement("div");
+      d.style.cssText = "position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:10px 16px;font:14px sans-serif;z-index:9999";
+      d.textContent = (cssOk ? "app.js" : "style.css と app.js") +
+        " を読み込めていません。zip を展開して全ファイルを同じフォルダに置き、GitHub Pages またはローカルサーバ (http://) 経由で開いてください。file:// や zip 内からの直接表示では動作しません。";
+      document.body.appendChild(d);
+    }, 3000);
+  </script>
+</body>
+</html>
