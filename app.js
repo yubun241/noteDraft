@@ -5,7 +5,7 @@
 // note への受け渡しは Markdown → HTML を clipboard(text/html) に載せて貼り付ける。
 // 構想（WHY/HOW/WHAT）は frontmatter に持ち、本文とは分離する。note には出さず、AI 用プロンプトの材料にする。
 
-import MarkdownIt from "./markdown-it.js"; // 同梱（外部 CDN 依存なし）。ルート直下に置く
+import MarkdownIt from "./markdown-it.js?v=4"; // 同梱（外部 CDN 依存なし）。ルート直下に置く
 
 // ---------- 設定 ----------
 const CFG_KEY = "note-drafts.config";

@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>note drafts</title>
-  <link rel="stylesheet" href="./style.css" />
+  <!-- 更新時は ?v= の数字を上げる（GitHub Pages は 10 分キャッシュするため） -->
+  <link rel="stylesheet" href="./style.css?v=4" />
 </head>
 <body>
   <header class="topbar">
@@ -129,6 +130,6 @@
       if (getComputedStyle(document.body).display !== "flex") window.__showFatal("style.css が読み込めていません（同階層にあるか確認）");
     });
   </script>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=4"></script>
 </body>
 </html>
